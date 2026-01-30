@@ -3,6 +3,7 @@ import { MockCamera, getNextPattern, type PatternName } from "./camera/mock-came
 import { FfmpegCamera } from "./camera/ffmpeg-camera.ts";
 import { createShaderPipeline, type ShaderPipeline } from "./pipeline/shader-pipeline.ts";
 import { getNextEffect, type EffectName } from "./pipeline/effects.ts";
+import { getRamp } from "./ascii/ramps.ts";
 import { AsciiMapper } from "./ascii/ascii-mapper.ts";
 import { TuiCamApp } from "./app/app.ts";
 import type { CameraSource } from "./camera/types.ts";
@@ -32,7 +33,8 @@ function handleAction(action: Action): void {
       currentEffect = getNextEffect(currentEffect);
       break;
     case "cycle-ramp":
-      mapper.cycleRamp();
+      const nextRamp = mapper.cycleRamp();
+      app.setRamp(getRamp(nextRamp));
       break;
     case "toggle-mirror":
       mirror = !mirror;
@@ -56,6 +58,7 @@ function handleAction(action: Action): void {
 const app = new TuiCamApp({
   targetFps: config.fps,
   onAction: handleAction,
+  color: config.color,
 });
 
 let pipeline: ShaderPipeline;
@@ -69,8 +72,9 @@ async function main() {
   const termRows = process.stdout.rows || 24;
   const outWidth = config.width || termCols;
   // drawGrayscaleBuffer uses half-blocks, so pixel height = 2 * cell rows
+  // but color mode (ANSI patterns) uses 1 pixel per cell
   // Status bar takes 1 row
-  const outHeight = config.height || (termRows - 1) * 2;
+  const outHeight = config.height || (termRows - 1) * (config.color ? 1 : 2);
 
   // Create camera at the OUTPUT resolution so ffmpeg scales for us,
   // keeping pipe throughput low and avoiding CPU downscale
@@ -85,6 +89,9 @@ async function main() {
 
   // Start camera
   await camera.start();
+
+  // Initialize ramp in viewport
+  app.setRamp(getRamp(mapper.getRampName()));
 
   // FPS tracking
   let frameCount = 0;

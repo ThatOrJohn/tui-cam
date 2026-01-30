@@ -53,32 +53,26 @@ export class StatusBar extends Renderable {
   }
 
   private buildText(): string {
-    const { info } = this;
+    const info = this.info;
     const parts: string[] = [];
 
-    if (info.paused) {
-      parts.push("PAUSED");
-    } else {
-      parts.push(`FPS:${info.fps}/${info.targetFps}`);
-    }
-
+    parts.push(info.paused ? "⏸ PAUSED" : "▶ LIVE");
     parts.push(`${info.width}x${info.height}`);
-    parts.push(info.source);
+    parts.push(`${info.fps}/${info.targetFps} FPS`);
+    parts.push(`[${info.source}]`);
     
+    // Always show these
+    parts.push(info.effect);
+    parts.push(info.ramp);
+    parts.push(info.isGpu ? "GPU" : "CPU");
+
     if (info.debugInfo) {
-      parts.push(`[DEBUG: ${info.debugInfo}]`);
-    } else {
-        parts.push(info.effect);
-        parts.push(info.ramp);
-        parts.push(info.isGpu ? "GPU" : "CPU");
+      parts.push(`{${info.debugInfo}}`);
     }
 
-    if (info.mirror) parts.push("MIR");
-    if (info.supersample) parts.push("SS");
-
-    parts.push(`${info.frameTimeMs.toFixed(1)}ms`);
-
-    return ` ${parts.join(" | ")} `;
+    const text = parts.join(" | ");
+    const padding = " ".repeat(Math.max(0, this.width - text.length));
+    return text + padding;
   }
 
   protected override renderSelf(buffer: OptimizedBuffer): void {

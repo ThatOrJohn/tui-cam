@@ -13,6 +13,7 @@ import type { ProcessedFrame } from "../pipeline/shader-pipeline.ts";
 export interface TuiCamAppOptions {
   targetFps: number;
   onAction: (action: Action) => void;
+  color?: boolean;
 }
 
 export class TuiCamApp {
@@ -23,10 +24,12 @@ export class TuiCamApp {
   private helpOverlay: BoxRenderable | null = null;
   private onAction: (action: Action) => void;
   private targetFps: number;
+  private color: boolean;
 
   constructor(options: TuiCamAppOptions) {
     this.onAction = options.onAction;
     this.targetFps = options.targetFps;
+    this.color = options.color ?? false;
   }
 
   async initialize(): Promise<void> {
@@ -49,6 +52,7 @@ export class TuiCamApp {
     // Viewport takes all space except status bar
     this.viewport = new AsciiViewport(ctx, {
       flexGrow: 1,
+      color: this.color,
     });
 
     // Status bar at bottom, 1 row tall
@@ -130,6 +134,10 @@ export class TuiCamApp {
 
   updateStatus(info: Partial<StatusInfo>): void {
     this.statusBar.update(info);
+  }
+
+  setRamp(ramp: string): void {
+    this.viewport.ramp = ramp;
   }
 
   getViewportSize(): { width: number; height: number } {

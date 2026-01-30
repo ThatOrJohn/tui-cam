@@ -4,6 +4,7 @@ import { cpuMirror, cpuEdges, cpuInvert, cpuThreshold, cpuPosterize, cpuContrast
 
 export interface ProcessedFrame {
   luminance: Float32Array;
+  color?: Uint8ClampedArray;
   width: number;
   height: number;
 }
@@ -115,7 +116,13 @@ class CpuShaderPipeline implements ShaderPipeline {
       }
     }
 
-    return { luminance, width: outWidth, height: outHeight };
+    // Pass through the RGBA data if available
+    return { 
+      luminance, 
+      color: processed.data,
+      width: outWidth, 
+      height: outHeight 
+    };
   }
 
   destroy(): void {
@@ -213,7 +220,7 @@ export async function createShaderPipeline(
       await pipeline.initialize();
       return pipeline;
     } catch (e) {
-      console.error("GPU pipeline init failed, falling back to CPU:", (e as Error).message);
+      console.error(`GPU pipeline init failed, falling back to CPU: ${(e as Error).message}\n${(e as Error).stack}`);
     }
   }
 

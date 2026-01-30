@@ -4,8 +4,8 @@ export interface AppConfig {
   mock: boolean;
   mockPattern: string;
   fps: number;
-  width: number;
-  height: number;
+  width?: number;
+  height?: number;
   effect: string;
   noGpu: boolean;
   mirror: boolean;
@@ -28,22 +28,14 @@ export function parseConfig(): AppConfig {
     return args.includes(`--${name}`);
   }
 
-  const cols = process.stdout.columns || 80;
-  const rows = process.stdout.rows || 24;
-
-  // Terminal chars are ~2x tall as wide, and drawGrayscaleBuffer uses half-blocks
-  // so effective pixel height = rows * 2
-  const termWidth = cols;
-  const termHeight = (rows - 1) * 2; // -1 for status bar
-
   const resolution = getArg("resolution");
-  let width = termWidth;
-  let height = termHeight;
+  let width: number | undefined;
+  let height: number | undefined;
   if (resolution) {
     const parts = resolution.split("x");
     if (parts.length === 2) {
-      width = parseInt(parts[0]!, 10) || termWidth;
-      height = parseInt(parts[1]!, 10) || termHeight;
+      width = parseInt(parts[0]!, 10);
+      height = parseInt(parts[1]!, 10);
     }
   }
 
