@@ -2,9 +2,10 @@
 
 Real-time ASCII webcam viewer for the terminal. Captures video from your webcam (or generates test patterns) and renders it as ASCII art using half-block characters for high-resolution output.
 
-Built with [OpenTUI](https://github.com/anthropics/opentui) and [Bun](https://bun.sh).
+Built with [OpenTUI](https://opentui.com) and [Bun](https://bun.sh).
 
 <!-- Screenshot: main webcam view -->
+
 ![tui-cam in action](screenshots/live.png)
 
 ## Features
@@ -21,6 +22,7 @@ Built with [OpenTUI](https://github.com/anthropics/opentui) and [Bun](https://bu
 - Status bar with FPS, resolution, effect, and pipeline info
 
 <!-- Screenshot: edge detection or another effect -->
+
 ![Effects demo](screenshots/effects.png)
 
 ## Requirements
@@ -53,18 +55,18 @@ bun run start:mock
 
 ### CLI options
 
-| Flag | Description | Default |
-|---|---|---|
-| `--mock` | Use mock camera with test patterns | off |
-| `--pattern <name>` | Mock pattern: `gradient`, `checkerboard`, `sinewave`, `noise`, `bars`, `circle` | `gradient` |
-| `--fps <n>` | Target frame rate | `24` |
-| `--resolution <WxH>` | Override output resolution (e.g. `120x60`) | terminal size |
-| `--effect <name>` | Starting effect: `none`, `edges`, `posterize`, `contrast`, `invert`, `threshold` | `none` |
-| `--ramp <name>` | Character ramp: `standard`, `blocks`, `simple`, `detailed`, `dots` | `standard` |
-| `--mirror` | Start with mirror mode on | off |
-| `--color` | Enable color mode | off |
-| `--no-gpu` | Force CPU pipeline (skip GPU) | off |
-| `--camera <index>` | Camera device index for ffmpeg | `0` |
+| Flag                 | Description                                                                      | Default       |
+| -------------------- | -------------------------------------------------------------------------------- | ------------- |
+| `--mock`             | Use mock camera with test patterns                                               | off           |
+| `--pattern <name>`   | Mock pattern: `gradient`, `checkerboard`, `sinewave`, `noise`, `bars`, `circle`  | `gradient`    |
+| `--fps <n>`          | Target frame rate                                                                | `24`          |
+| `--resolution <WxH>` | Override output resolution (e.g. `120x60`)                                       | terminal size |
+| `--effect <name>`    | Starting effect: `none`, `edges`, `posterize`, `contrast`, `invert`, `threshold` | `none`        |
+| `--ramp <name>`      | Character ramp: `standard`, `blocks`, `simple`, `detailed`, `dots`               | `standard`    |
+| `--mirror`           | Start with mirror mode on                                                        | off           |
+| `--color`            | Enable color mode                                                                | off           |
+| `--no-gpu`           | Force CPU pipeline (skip GPU)                                                    | off           |
+| `--camera <index>`   | Camera device index for ffmpeg                                                   | `0`           |
 
 ### Examples
 
@@ -84,16 +86,16 @@ bun run src/index.ts --camera 1
 
 ## Controls
 
-| Key | Action |
-|---|---|
-| `Space` | Pause / Resume |
-| `E` | Cycle effect |
-| `R` | Cycle character ramp |
-| `M` | Toggle mirror |
-| `S` | Toggle supersample |
-| `P` | Cycle pattern (mock mode) |
-| `H` | Toggle help overlay |
-| `Q` | Quit |
+| Key     | Action                    |
+| ------- | ------------------------- |
+| `Space` | Pause / Resume            |
+| `E`     | Cycle effect              |
+| `R`     | Cycle character ramp      |
+| `M`     | Toggle mirror             |
+| `S`     | Toggle supersample        |
+| `P`     | Cycle pattern (mock mode) |
+| `H`     | Toggle help overlay       |
+| `Q`     | Quit                      |
 
 ## Architecture
 
