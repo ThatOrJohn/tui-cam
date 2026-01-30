@@ -177,8 +177,18 @@ test("Config parsing defaults", () => {
   expect(config.effect).toBe("none");
   expect(config.ramp).toBe("standard");
   expect(config.mock).toBe(false);
-  expect(config.noGpu).toBe(false);
+  expect(config.gpu).toBe(true); // GPU enabled by default
   expect(config.mirror).toBe(false);
+});
+
+test("Config --no-gpu flag disables GPU", () => {
+  const originalArgv = Bun.argv;
+  Bun.argv = ["bun", "src/index.ts", "--no-gpu"];
+
+  const config = parseConfig();
+  expect(config.gpu).toBe(false);
+
+  Bun.argv = originalArgv;
 });
 
 test("Mirror effect flips horizontally", () => {

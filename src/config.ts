@@ -46,7 +46,7 @@ export function parseConfig(): AppConfig {
     width,
     height,
     effect: getArg("effect") || "none",
-    gpu: hasFlag("gpu"),
+    gpu: !hasFlag("no-gpu"), // Default to GPU, disable with --no-gpu
     mirror: hasFlag("mirror"),
     color: hasFlag("color"),
     ramp: (getArg("ramp") as RampName) || "standard",

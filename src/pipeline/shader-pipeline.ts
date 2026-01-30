@@ -155,36 +155,55 @@ class GpuShaderPipeline implements ShaderPipeline {
 
   async initialize(): Promise<void> {
     // Setup WebGPU globals
-    const { setupGlobals } = await import("bun-webgpu");
+    const { setupGlobals, GPUCanvasContextMock } = await import("bun-webgpu");
     await setupGlobals();
 
     if (!(globalThis as any).navigator?.gpu) {
        throw new Error("navigator.gpu not found");
     }
 
+    // Acquire adapter and device directly via bun-webgpu.
+    // We pass these to Three.js to skip its internal requestAdapter() call,
+    // which can block the event loop via native FFI.
+    const adapter = await (globalThis as any).navigator.gpu.requestAdapter();
+    if (!adapter) throw new Error("No WebGPU adapter available");
+    const device = await adapter.requestDevice();
+    if (!device) throw new Error("Failed to create WebGPU device");
+
+    // Mock requestAnimationFrame for Three.js Animation module.
+    // Use a no-op: register but never call back, since we render manually.
+    if (typeof (globalThis as any).requestAnimationFrame === 'undefined') {
+      (globalThis as any).requestAnimationFrame = () => 0;
+      (globalThis as any).cancelAnimationFrame = () => {};
+    }
+
     // Mock DOM for Three.js
+    const { outWidth, outHeight } = this;
     if (typeof (globalThis as any).document === 'undefined') {
-      const mockElement = {
+      const mockCanvas = {
         style: {},
-        width: this.outWidth,
-        height: this.outHeight,
+        width: outWidth,
+        height: outHeight,
         addEventListener: () => {},
         removeEventListener: () => {},
         setAttribute: () => {},
         getBoundingClientRect: () => ({
-            width: this.outWidth,
-            height: this.outHeight,
+            width: outWidth,
+            height: outHeight,
             top: 0,
             left: 0,
-            bottom: this.outHeight,
-            right: this.outWidth
+            bottom: outHeight,
+            right: outWidth,
         }),
-        getContext: () => null,
+        getContext: (type: string) => {
+          if (type === 'webgpu') return new GPUCanvasContextMock(mockCanvas, outWidth, outHeight);
+          return null;
+        },
       };
       (globalThis as any).document = {
         documentElement: { style: {} },
-        createElement: () => mockElement,
-        createElementNS: () => mockElement,
+        createElement: () => mockCanvas,
+        createElementNS: () => mockCanvas,
       };
     }
     if (typeof (globalThis as any).window === 'undefined') {
@@ -195,10 +214,9 @@ class GpuShaderPipeline implements ShaderPipeline {
     // @ts-ignore - three/webgpu has no declaration file
     const THREE = await import("three/webgpu");
 
-    const { outWidth, outHeight } = this;
-
-    // Create headless WebGPU renderer
-    this.gpuRenderer = new THREE.WebGPURenderer({ antialias: false });
+    // Create headless WebGPU renderer, passing pre-acquired device to skip
+    // Three.js's internal requestAdapter() which blocks the event loop.
+    this.gpuRenderer = new THREE.WebGPURenderer({ antialias: false, device });
     this.gpuRenderer.setSize(outWidth, outHeight);
     await this.gpuRenderer.init();
 
@@ -243,6 +261,29 @@ class GpuShaderPipeline implements ShaderPipeline {
 
 // --- Factory ---
 
+/**
+ * Probe GPU availability in a subprocess. bun-webgpu's native FFI can block
+ * the event loop during requestAdapter(), making in-process timeouts ineffective.
+ * A subprocess has its own event loop, so we can reliably kill it on timeout.
+ */
+async function probeGpuAvailability(): Promise<boolean> {
+  try {
+    const proc = Bun.spawn(["bun", "-e",
+      "const{setupGlobals}=require('bun-webgpu');await setupGlobals();const a=await navigator.gpu.requestAdapter();process.exit(a?0:1)"
+    ], { stdout: "ignore", stderr: "ignore" });
+
+    const exitCode = await Promise.race([
+      proc.exited,
+      new Promise<number>((resolve) =>
+        setTimeout(() => { proc.kill(); resolve(1); }, 3000)
+      ),
+    ]);
+    return exitCode === 0;
+  } catch {
+    return false;
+  }
+}
+
 export async function createShaderPipeline(
   outWidth: number,
   outHeight: number,
@@ -250,12 +291,21 @@ export async function createShaderPipeline(
 ): Promise<ShaderPipeline> {
   if (gpuEnabled) {
     try {
+      // Probe GPU in a subprocess first — if the native FFI blocks the event loop
+      // (common when GPU driver is unresponsive), only the subprocess hangs,
+      // and we can kill it after 3 seconds.
+      const gpuAvailable = await probeGpuAvailability();
+      if (!gpuAvailable) {
+        throw new Error("GPU not available (probe timed out or no adapter found)");
+      }
+
       const pipeline = new GpuShaderPipeline(outWidth, outHeight);
-      
-      // Add a timeout to prevent absolute freeze if WebGPU hangs
+
+      // The probe confirmed GPU works, so requestAdapter in the main process
+      // should complete quickly. Keep a timeout as a safety net.
       const initPromise = pipeline.initialize();
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("GPU initialization timed out")), 2000)
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("GPU initialization timed out")), 5000)
       );
 
       await Promise.race([initPromise, timeoutPromise]);
