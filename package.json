@@ -1,0 +1,22 @@
+{
+  "name": "tui-cam",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "start:mock": "bun run src/index.ts --mock",
+    "dev": "bun --hot src/index.ts --mock"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@opentui/core": "^0.1.75",
+    "three": "0.177.0",
+    "bun-webgpu": "0.1.4"
+  }
+}
