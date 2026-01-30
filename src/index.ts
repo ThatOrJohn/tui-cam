@@ -94,9 +94,21 @@ async function main() {
   let lastFrameTimestamp = -1;
   let processing = false; // Concurrency guard
 
-  function getSourceLabel(): string {
-    return config.mock ? `mock:${(camera as MockCamera).pattern}` : "cam";
-  }
+  // Pre-allocate status object — mutate in place instead of creating new objects each frame
+  const status = {
+    paused: false,
+    fps: 0,
+    targetFps: config.fps,
+    width: outWidth,
+    height: outHeight,
+    source: config.mock ? `mock:${config.mockPattern}` : "cam",
+    effect: currentEffect as string,
+    ramp: mapper.getRampName(),
+    isGpu: pipeline.isGpu,
+    frameTimeMs: 0,
+    mirror,
+    supersample,
+  };
 
   // Frame callback - called each frame by OpenTUI's render loop
   app.renderer.setFrameCallback(async (_deltaTime: number) => {
@@ -105,23 +117,21 @@ async function main() {
     processing = true;
 
     try {
+      // Update volatile status fields
+      status.fps = currentFps;
+      status.frameTimeMs = lastFrameTime;
+      status.effect = currentEffect;
+      status.mirror = mirror;
+      status.supersample = supersample;
+      status.ramp = mapper.getRampName();
+
       if (paused) {
-        app.updateStatus({
-          paused: true,
-          fps: currentFps,
-          targetFps: config.fps,
-          width: outWidth,
-          height: outHeight,
-          source: getSourceLabel(),
-          effect: currentEffect,
-          ramp: mapper.getRampName(),
-          isGpu: pipeline.isGpu,
-          mirror,
-          supersample,
-          frameTimeMs: lastFrameTime,
-        });
+        status.paused = true;
+        if (config.mock) status.source = `mock:${(camera as MockCamera).pattern}`;
+        app.updateStatus(status);
         return;
       }
+      status.paused = false;
 
       const frameStart = performance.now();
 
@@ -129,21 +139,8 @@ async function main() {
       const frame = camera.getFrame();
       if (!frame) return;
       if (frame.timestamp === lastFrameTimestamp) {
-        // Still update status even if no new frame
-        app.updateStatus({
-          paused: false,
-          fps: currentFps,
-          targetFps: config.fps,
-          width: outWidth,
-          height: outHeight,
-          source: getSourceLabel(),
-          effect: currentEffect,
-          ramp: mapper.getRampName(),
-          isGpu: pipeline.isGpu,
-          frameTimeMs: lastFrameTime,
-          mirror,
-          supersample,
-        });
+        if (config.mock) status.source = `mock:${(camera as MockCamera).pattern}`;
+        app.updateStatus(status);
         return;
       }
       lastFrameTimestamp = frame.timestamp;
@@ -158,28 +155,17 @@ async function main() {
       frameCount++;
       const now = performance.now();
       lastFrameTime = now - frameStart;
+      status.frameTimeMs = lastFrameTime;
 
       if (now - lastFpsTime >= 1000) {
         currentFps = frameCount;
         frameCount = 0;
         lastFpsTime = now;
+        status.fps = currentFps;
       }
 
-      // Update status
-      app.updateStatus({
-        paused: false,
-        fps: currentFps,
-        targetFps: config.fps,
-        width: outWidth,
-        height: outHeight,
-        source: getSourceLabel(),
-        effect: currentEffect,
-        ramp: mapper.getRampName(),
-        isGpu: pipeline.isGpu,
-        frameTimeMs: lastFrameTime,
-        mirror,
-        supersample,
-      });
+      if (config.mock) status.source = `mock:${(camera as MockCamera).pattern}`;
+      app.updateStatus(status);
     } finally {
       processing = false;
     }

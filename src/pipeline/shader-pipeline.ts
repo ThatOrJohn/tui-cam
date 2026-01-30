@@ -80,21 +80,38 @@ class CpuShaderPipeline implements ShaderPipeline {
       }
     }
 
-    // Downscale to output resolution if needed
+    // Extract luminance
     const { outWidth, outHeight } = this;
     const luminance = this.luminanceBuf;
-
     const { data, width: srcW, height: srcH } = processed;
-    const scaleX = srcW / outWidth;
-    const scaleY = srcH / outHeight;
 
-    for (let y = 0; y < outHeight; y++) {
-      const srcY = Math.min(Math.floor(y * scaleY), srcH - 1);
-      for (let x = 0; x < outWidth; x++) {
-        const srcX = Math.min(Math.floor(x * scaleX), srcW - 1);
-        const i = (srcY * srcW + srcX) * 4;
-        // Rec.709 luminance
-        luminance[y * outWidth + x] = (0.299 * data[i]! + 0.587 * data[i + 1]! + 0.114 * data[i + 2]!) / 255;
+    // Precomputed Rec.709 coefficients (divided by 255 to avoid per-pixel division)
+    const rC = 0.299 / 255;
+    const gC = 0.587 / 255;
+    const bC = 0.114 / 255;
+
+    if (srcW === outWidth && srcH === outHeight) {
+      // Fast path: 1:1 scale — tight flat loop, no Math calls
+      const len = outWidth * outHeight;
+      for (let p = 0, i = 0; p < len; p++, i += 4) {
+        luminance[p] = rC * data[i] + gC * data[i + 1] + bC * data[i + 2];
+      }
+    } else {
+      // Downscale path
+      const scaleX = srcW / outWidth;
+      const scaleY = srcH / outHeight;
+      const maxSrcX = srcW - 1;
+      const maxSrcY = srcH - 1;
+
+      for (let y = 0; y < outHeight; y++) {
+        const srcY = Math.min((y * scaleY) | 0, maxSrcY);
+        const rowOff = srcY * srcW;
+        const dstRowOff = y * outWidth;
+        for (let x = 0; x < outWidth; x++) {
+          const srcX = Math.min((x * scaleX) | 0, maxSrcX);
+          const i = (rowOff + srcX) << 2;
+          luminance[dstRowOff + x] = rC * data[i] + gC * data[i + 1] + bC * data[i + 2];
+        }
       }
     }
 

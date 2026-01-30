@@ -61,10 +61,12 @@ export function cpuPosterize(frame: Frame, levels = 4, out?: Uint8ClampedArray):
 export function cpuContrast(frame: Frame, amount = 1.5, out?: Uint8ClampedArray): Frame {
   const { width, height, data } = frame;
   const buf = out ?? new Uint8ClampedArray(data.length);
+  // Precompute: ((v/255 - 0.5) * amount + 0.5) * 255 = v * amount + (0.5 - 0.5*amount) * 255
+  const offset = (0.5 - 0.5 * amount) * 255;
   for (let i = 0; i < data.length; i += 4) {
-    buf[i] = Math.min(255, Math.max(0, ((data[i]! / 255 - 0.5) * amount + 0.5) * 255));
-    buf[i + 1] = Math.min(255, Math.max(0, ((data[i + 1]! / 255 - 0.5) * amount + 0.5) * 255));
-    buf[i + 2] = Math.min(255, Math.max(0, ((data[i + 2]! / 255 - 0.5) * amount + 0.5) * 255));
+    buf[i] = Math.min(255, Math.max(0, data[i] * amount + offset));
+    buf[i + 1] = Math.min(255, Math.max(0, data[i + 1] * amount + offset));
+    buf[i + 2] = Math.min(255, Math.max(0, data[i + 2] * amount + offset));
     buf[i + 3] = data[i + 3]!;
   }
   return { width, height, data: buf, timestamp: frame.timestamp };
@@ -111,14 +113,13 @@ export function cpuEdges(frame: Frame, out?: Uint8ClampedArray, lumScratch?: Flo
 export function cpuMirror(frame: Frame, out?: Uint8ClampedArray): Frame {
   const { width, height, data } = frame;
   const buf = out ?? new Uint8ClampedArray(data.length);
+  // Use 32-bit views for 4x fewer copy operations (one u32 = one RGBA pixel)
+  const src32 = new Uint32Array(data.buffer, data.byteOffset, width * height);
+  const dst32 = new Uint32Array(buf.buffer, buf.byteOffset, width * height);
   for (let y = 0; y < height; y++) {
+    const rowStart = y * width;
     for (let x = 0; x < width; x++) {
-      const srcIdx = (y * width + (width - 1 - x)) * 4;
-      const dstIdx = (y * width + x) * 4;
-      buf[dstIdx] = data[srcIdx]!;
-      buf[dstIdx + 1] = data[srcIdx + 1]!;
-      buf[dstIdx + 2] = data[srcIdx + 2]!;
-      buf[dstIdx + 3] = data[srcIdx + 3]!;
+      dst32[rowStart + x] = src32[rowStart + (width - 1 - x)]!;
     }
   }
   return { width, height, data: buf, timestamp: frame.timestamp };

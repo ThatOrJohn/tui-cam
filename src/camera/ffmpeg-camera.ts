@@ -10,11 +10,19 @@ export class FfmpegCamera implements CameraSource {
   private proc: ReturnType<typeof Bun.spawn> | null = null;
   private readerDone = false;
 
+  // Double-buffered frame data to avoid per-frame allocation
+  private frameBufA: Uint8ClampedArray;
+  private frameBufB: Uint8ClampedArray;
+  private useA = true;
+
   constructor(width: number, height: number, fps: number, cameraIndex = "0") {
     this.width = width;
     this.height = height;
     this.fps = fps;
     this.cameraIndex = cameraIndex;
+    const frameSize = width * height * 4;
+    this.frameBufA = new Uint8ClampedArray(frameSize);
+    this.frameBufB = new Uint8ClampedArray(frameSize);
   }
 
   async start(): Promise<void> {
@@ -75,7 +83,9 @@ export class FfmpegCamera implements CameraSource {
 
         // Extract complete frames
         while (offset >= frameSize) {
-          const frameData = new Uint8ClampedArray(frameSize);
+          // Swap double buffer: write into the inactive buffer
+          const frameData = this.useA ? this.frameBufA : this.frameBufB;
+          this.useA = !this.useA;
           frameData.set(buffer.subarray(0, frameSize));
           this.frame = {
             width: this.width,

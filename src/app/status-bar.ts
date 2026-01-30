@@ -23,6 +23,8 @@ export class StatusBar extends Renderable {
   private bgColor: RGBA;
   private fgColor: RGBA;
   private accentColor: RGBA;
+  private cachedText = "";
+  private dirty = true;
 
   constructor(ctx: RenderContext, options: RenderableOptions = {}) {
     super(ctx, { ...options, live: true });
@@ -47,16 +49,11 @@ export class StatusBar extends Renderable {
 
   update(info: Partial<StatusInfo>): void {
     Object.assign(this.info, info);
+    this.dirty = true;
   }
 
-  protected override renderSelf(buffer: OptimizedBuffer): void {
-    const { info, bgColor } = this;
-    const w = this._widthValue || this.width;
-
-    // Fill background
-    buffer.fillRect(this._x, this._y, w, 1, bgColor);
-
-    // Build status text
+  private buildText(): string {
+    const { info } = this;
     const parts: string[] = [];
 
     if (info.paused) {
@@ -76,15 +73,29 @@ export class StatusBar extends Renderable {
 
     parts.push(`${info.frameTimeMs.toFixed(1)}ms`);
 
-    const text = ` ${parts.join(" | ")} `;
+    return ` ${parts.join(" | ")} `;
+  }
+
+  protected override renderSelf(buffer: OptimizedBuffer): void {
+    const { bgColor } = this;
+    const w = this._widthValue || this.width;
+
+    // Fill background
+    buffer.fillRect(this._x, this._y, w, 1, bgColor);
+
+    // Rebuild text only when status changed
+    if (this.dirty) {
+      this.cachedText = this.buildText();
+      this.dirty = false;
+    }
 
     // Draw text
-    buffer.drawText(text, this._x, this._y, this.fgColor, bgColor);
+    buffer.drawText(this.cachedText, this._x, this._y, this.fgColor, bgColor);
 
     // Draw keybind hint on the right
     const hint = " [h]elp [q]uit ";
     const hintX = this._x + w - hint.length;
-    if (hintX > this._x + text.length) {
+    if (hintX > this._x + this.cachedText.length) {
       buffer.drawText(hint, hintX, this._y, this.accentColor, bgColor);
     }
   }

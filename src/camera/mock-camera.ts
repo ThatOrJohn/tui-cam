@@ -17,6 +17,7 @@ export class MockCamera implements CameraSource {
   private frame: Frame | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private t = 0;
+  private dataBuf: Uint8ClampedArray;
   pattern: PatternName;
 
   constructor(width: number, height: number, fps: number, pattern: PatternName = "gradient") {
@@ -24,6 +25,7 @@ export class MockCamera implements CameraSource {
     this.height = height;
     this.fps = fps;
     this.pattern = pattern;
+    this.dataBuf = new Uint8ClampedArray(width * height * 4);
   }
 
   async start(): Promise<void> {
@@ -53,7 +55,7 @@ export class MockCamera implements CameraSource {
 
   private generateFrame(): void {
     const { width, height } = this;
-    const data = new Uint8ClampedArray(width * height * 4);
+    const data = this.dataBuf;
     const t = this.t++;
 
     switch (this.pattern) {
