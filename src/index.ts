@@ -108,6 +108,7 @@ async function main() {
     frameTimeMs: 0,
     mirror,
     supersample,
+    debugInfo: undefined as string | undefined,
   };
 
   // Frame callback - called each frame by OpenTUI's render loop
@@ -157,7 +158,16 @@ async function main() {
       lastFrameTime = now - frameStart;
       status.frameTimeMs = lastFrameTime;
 
+      // Debug logging every ~1 second
       if (now - lastFpsTime >= 1000) {
+        if (config.debug) {
+           if (camera instanceof FfmpegCamera) {
+             status.debugInfo = camera.getDebugStats();
+           } else {
+             status.debugInfo = "mock";
+           }
+        }
+        
         currentFps = frameCount;
         frameCount = 0;
         lastFpsTime = now;

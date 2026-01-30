@@ -12,6 +12,7 @@ export interface AppConfig {
   color: boolean;
   ramp: RampName;
   cameraIndex: string;
+  debug: boolean;
 }
 
 export function parseConfig(): AppConfig {
@@ -58,5 +59,6 @@ export function parseConfig(): AppConfig {
     color: hasFlag("color"),
     ramp: (getArg("ramp") as RampName) || "standard",
     cameraIndex: getArg("camera") || "0",
+    debug: hasFlag("debug"),
   };
 }

@@ -33,11 +33,19 @@ export class FfmpegCamera implements CameraSource {
     // won't reject an unsupported video_size.
     const args = [
       "ffmpeg",
+      // input flags -> minimize latency
+      "-fflags", "nobuffer",
+      "-flags", "low_delay",
+      "-strict", "experimental",
+      // buffer tuning
+      "-probesize", "32",
+      "-analyzeduration", "0",
       "-f", "avfoundation",
       "-framerate", String(fps),
       "-i", cameraIndex,
       "-vf", `scale=${width}:${height}`,
       "-pix_fmt", "rgba",
+      "-r", String(fps), // Force output rate!
       "-f", "rawvideo",
       "-v", "error",
       "pipe:1",
@@ -82,11 +90,24 @@ export class FfmpegCamera implements CameraSource {
         offset += value.length;
 
         // Extract complete frames
-        while (offset >= frameSize) {
+        // Efficiently handle frame backlog: only process the MOST RECENT complete frame
+        const numFrames = Math.floor(offset / frameSize);
+        
+        if (numFrames > 0) {
+          // Calculate where the last complete frame starts
+          const lastFrameStart = (numFrames - 1) * frameSize;
+          
+          if (numFrames > 1) {
+            this.droppedFrames += (numFrames - 1);
+          }
+
           // Swap double buffer: write into the inactive buffer
           const frameData = this.useA ? this.frameBufA : this.frameBufB;
           this.useA = !this.useA;
-          frameData.set(buffer.subarray(0, frameSize));
+          
+          // Copy only the most recent frame
+          frameData.set(buffer.subarray(lastFrameStart, lastFrameStart + frameSize));
+          
           this.frame = {
             width: this.width,
             height: this.height,
@@ -94,9 +115,11 @@ export class FfmpegCamera implements CameraSource {
             timestamp: performance.now(),
           };
 
-          // Shift remaining data
-          buffer.copyWithin(0, frameSize, offset);
-          offset -= frameSize;
+          // Shift remaining partial data to the start of the buffer
+          // We consume 'numFrames * frameSize' bytes
+          const consumed = numFrames * frameSize;
+          buffer.copyWithin(0, consumed, offset);
+          offset -= consumed;
         }
       }
     } catch {
@@ -144,5 +167,12 @@ export class FfmpegCamera implements CameraSource {
 
   isRunning(): boolean {
     return this.running && !this.readerDone;
+  }
+
+  // Debug stats
+  private droppedFrames = 0;
+  
+  getDebugStats(): string {
+    return `dropped:${this.droppedFrames}`;
   }
 }

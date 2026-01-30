@@ -16,6 +16,7 @@ export interface StatusInfo {
   paused: boolean;
   mirror: boolean;
   supersample: boolean;
+  debugInfo?: string;
 }
 
 export class StatusBar extends Renderable {
@@ -46,7 +47,6 @@ export class StatusBar extends Renderable {
       supersample: false,
     };
   }
-
   update(info: Partial<StatusInfo>): void {
     Object.assign(this.info, info);
     this.dirty = true;
@@ -64,9 +64,14 @@ export class StatusBar extends Renderable {
 
     parts.push(`${info.width}x${info.height}`);
     parts.push(info.source);
-    parts.push(info.effect);
-    parts.push(info.ramp);
-    parts.push(info.isGpu ? "GPU" : "CPU");
+    
+    if (info.debugInfo) {
+      parts.push(`[DEBUG: ${info.debugInfo}]`);
+    } else {
+        parts.push(info.effect);
+        parts.push(info.ramp);
+        parts.push(info.isGpu ? "GPU" : "CPU");
+    }
 
     if (info.mirror) parts.push("MIR");
     if (info.supersample) parts.push("SS");
