@@ -217,6 +217,42 @@ src/
 bun test
 ```
 
+## Troubleshooting
+
+### GPU Mode Not Working on M1/M2/M3 Macs
+
+**Symptom:** Running without `--no-gpu` causes the app to crash or hang.
+
+**Cause:** The `bun-webgpu` library uses FFI (Foreign Function Interface) to call native WebGPU (Dawn) APIs. On some M1/M2/M3 Macs, `navigator.gpu.requestAdapter()` triggers a **bus error** in the native library layer. This is a known issue with Dawn WebGPU FFI bindings in Bun.
+
+**Status:** Tracked in [oven-sh/bun#19322](https://github.com/oven-sh/bun/issues/19322)
+
+**Workaround:** Use `--no-gpu` to force CPU rendering:
+
+```bash
+bun run src/index.ts --mock --no-gpu
+```
+
+The CPU pipeline is highly optimized and runs at 24-30 FPS without issues. GPU acceleration was intended as a "nice to have" for future shader-based effects, not a requirement.
+
+**Why the subprocess probe?** To prevent the main process from crashing, tui-cam spawns a subprocess that tests `requestAdapter()`. If it crashes or times out (3 seconds), the main process automatically falls back to CPU. This way, the app still works even if GPU init is broken.
+
+**Can I help fix this?** Yes! The issue is in the bun-webgpu native bindings, not in tui-cam. If you're familiar with Zig or FFI debugging:
+- Check out [kommander/bun-webgpu](https://github.com/kommander/bun-webgpu)
+- Run their examples to reproduce the crash
+- Report findings to the bun-webgpu maintainers
+
+### Other Issues
+
+**Terminal looks garbled:** Make sure your terminal supports Unicode half-block characters (`▀▄█`). Most modern terminals (iTerm2, Warp, Terminal.app) work fine.
+
+**Low FPS:** Try:
+- Reducing resolution: `--resolution 80x40`
+- Using a simpler ramp: `--ramp blocks`
+- Disabling effects: ensure effect is `none`
+
+**ffmpeg errors:** Check that your camera is not in use by another app (Zoom, Photo Booth, etc.).
+
 ## Credits
 
 - [OpenTUI](https://github.com/anthropics/opentui) -- Terminal UI framework

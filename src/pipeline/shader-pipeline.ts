@@ -269,17 +269,29 @@ class GpuShaderPipeline implements ShaderPipeline {
 async function probeGpuAvailability(): Promise<boolean> {
   try {
     const proc = Bun.spawn(["bun", "-e",
-      "const{setupGlobals}=require('bun-webgpu');await setupGlobals();const a=await navigator.gpu.requestAdapter();process.exit(a?0:1)"
-    ], { stdout: "ignore", stderr: "ignore" });
+      "const{setupGlobals}=await import('bun-webgpu');await setupGlobals();const a=await navigator.gpu.requestAdapter();process.exit(a?0:1)"
+    ], { stdout: "pipe", stderr: "pipe" });
 
     const exitCode = await Promise.race([
       proc.exited,
       new Promise<number>((resolve) =>
-        setTimeout(() => { proc.kill(); resolve(1); }, 3000)
+        setTimeout(() => { proc.kill(); resolve(124); }, 3000)
       ),
     ]);
-    return exitCode === 0;
-  } catch {
+
+    if (exitCode === 124) {
+      console.error("[GPU] Probe timed out after 3s");
+      return false;
+    }
+    if (exitCode !== 0) {
+      const stderr = await new Response(proc.stderr).text();
+      console.error("[GPU] Probe failed:", stderr.slice(0, 200));
+      return false;
+    }
+    console.log("[GPU] Probe succeeded");
+    return true;
+  } catch (e) {
+    console.error("[GPU] Probe exception:", e);
     return false;
   }
 }
@@ -294,8 +306,13 @@ export async function createShaderPipeline(
       // Probe GPU in a subprocess first — if the native FFI blocks the event loop
       // (common when GPU driver is unresponsive), only the subprocess hangs,
       // and we can kill it after 3 seconds.
+      //
+      // NOTE: On some M1 Macs, bun-webgpu's requestAdapter() causes a bus error
+      // crash in the native FFI layer. This is a known issue with Dawn WebGPU
+      // FFI bindings. See: https://github.com/oven-sh/bun/issues/19322
       const gpuAvailable = await probeGpuAvailability();
       if (!gpuAvailable) {
+        console.log("[GPU] Not available, falling back to CPU");
         throw new Error("GPU not available (probe timed out or no adapter found)");
       }
 
@@ -309,8 +326,10 @@ export async function createShaderPipeline(
       );
 
       await Promise.race([initPromise, timeoutPromise]);
+      console.log("[GPU] Initialized successfully");
       return pipeline;
     } catch (e) {
+      console.log("[GPU] Initialization failed, using CPU pipeline");
       // Silent fallback to CPU
     }
   }
