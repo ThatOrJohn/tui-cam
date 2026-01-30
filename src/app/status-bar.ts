@@ -56,23 +56,19 @@ export class StatusBar extends Renderable {
     const info = this.info;
     const parts: string[] = [];
 
-    parts.push(info.paused ? "⏸ PAUSED" : "▶ LIVE");
+    parts.push("TUI-CAM");
+    parts.push(info.isGpu ? "[GPU]" : "[CPU]");
+    parts.push(info.paused ? "⏸" : "▶");
     parts.push(`${info.width}x${info.height}`);
-    parts.push(`${info.fps}/${info.targetFps} FPS`);
-    parts.push(`[${info.source}]`);
-    
-    // Always show these
+    parts.push(`${info.fps}fps`);
     parts.push(info.effect);
     parts.push(info.ramp);
-    parts.push(info.isGpu ? "GPU" : "CPU");
 
     if (info.debugInfo) {
       parts.push(`{${info.debugInfo}}`);
     }
 
-    const text = parts.join(" | ");
-    const padding = " ".repeat(Math.max(0, this.width - text.length));
-    return text + padding;
+    return " " + parts.join(" | ") + " ";
   }
 
   protected override renderSelf(buffer: OptimizedBuffer): void {

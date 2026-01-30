@@ -58,6 +58,7 @@ export class TuiCamApp {
     // Status bar at bottom, 1 row tall
     this.statusBar = new StatusBar(ctx, {
       height: 1,
+      flexShrink: 0,
     });
 
     root.add(this.viewport);

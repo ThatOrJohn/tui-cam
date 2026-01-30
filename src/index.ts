@@ -85,7 +85,7 @@ async function main() {
   }
 
   // Create pipeline — input and output dimensions now match
-  pipeline = await createShaderPipeline(outWidth, outHeight, !config.noGpu);
+  pipeline = await createShaderPipeline(outWidth, outHeight, config.gpu);
 
   // Start camera
   await camera.start();

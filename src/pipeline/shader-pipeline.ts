@@ -2,6 +2,7 @@ import type { Frame } from "../camera/types.ts";
 import type { EffectName } from "./effects.ts";
 import { cpuMirror, cpuEdges, cpuInvert, cpuThreshold, cpuPosterize, cpuContrast } from "./effects.ts";
 
+
 export interface ProcessedFrame {
   luminance: Float32Array;
   color?: Uint8ClampedArray;
@@ -95,7 +96,7 @@ class CpuShaderPipeline implements ShaderPipeline {
       // Fast path: 1:1 scale — tight flat loop, no Math calls
       const len = outWidth * outHeight;
       for (let p = 0, i = 0; p < len; p++, i += 4) {
-        luminance[p] = rC * data[i] + gC * data[i + 1] + bC * data[i + 2];
+        luminance[p] = rC * data[i]! + gC * data[i + 1]! + bC * data[i + 2]!;
       }
     } else {
       // Downscale path
@@ -111,7 +112,7 @@ class CpuShaderPipeline implements ShaderPipeline {
         for (let x = 0; x < outWidth; x++) {
           const srcX = Math.min((x * scaleX) | 0, maxSrcX);
           const i = (rowOff + srcX) << 2;
-          luminance[dstRowOff + x] = rC * data[i] + gC * data[i + 1] + bC * data[i + 2];
+          luminance[dstRowOff + x] = rC * data[i]! + gC * data[i + 1]! + bC * data[i + 2]!;
         }
       }
     }
@@ -156,6 +157,39 @@ class GpuShaderPipeline implements ShaderPipeline {
     // Setup WebGPU globals
     const { setupGlobals } = await import("bun-webgpu");
     await setupGlobals();
+
+    if (!(globalThis as any).navigator?.gpu) {
+       throw new Error("navigator.gpu not found");
+    }
+
+    // Mock DOM for Three.js
+    if (typeof (globalThis as any).document === 'undefined') {
+      const mockElement = {
+        style: {},
+        width: this.outWidth,
+        height: this.outHeight,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        setAttribute: () => {},
+        getBoundingClientRect: () => ({
+            width: this.outWidth,
+            height: this.outHeight,
+            top: 0,
+            left: 0,
+            bottom: this.outHeight,
+            right: this.outWidth
+        }),
+        getContext: () => null,
+      };
+      (globalThis as any).document = {
+        documentElement: { style: {} },
+        createElement: () => mockElement,
+        createElementNS: () => mockElement,
+      };
+    }
+    if (typeof (globalThis as any).window === 'undefined') {
+      (globalThis as any).window = globalThis;
+    }
 
     // Import Three.js WebGPU modules
     // @ts-ignore - three/webgpu has no declaration file
@@ -217,10 +251,17 @@ export async function createShaderPipeline(
   if (gpuEnabled) {
     try {
       const pipeline = new GpuShaderPipeline(outWidth, outHeight);
-      await pipeline.initialize();
+      
+      // Add a timeout to prevent absolute freeze if WebGPU hangs
+      const initPromise = pipeline.initialize();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("GPU initialization timed out")), 2000)
+      );
+
+      await Promise.race([initPromise, timeoutPromise]);
       return pipeline;
     } catch (e) {
-      console.error(`GPU pipeline init failed, falling back to CPU: ${(e as Error).message}\n${(e as Error).stack}`);
+      // Silent fallback to CPU
     }
   }
 

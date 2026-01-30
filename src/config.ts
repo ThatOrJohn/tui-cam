@@ -7,7 +7,7 @@ export interface AppConfig {
   width?: number;
   height?: number;
   effect: string;
-  noGpu: boolean;
+  gpu: boolean;
   mirror: boolean;
   color: boolean;
   ramp: RampName;
@@ -46,7 +46,7 @@ export function parseConfig(): AppConfig {
     width,
     height,
     effect: getArg("effect") || "none",
-    noGpu: hasFlag("no-gpu"),
+    gpu: hasFlag("gpu"),
     mirror: hasFlag("mirror"),
     color: hasFlag("color"),
     ramp: (getArg("ramp") as RampName) || "standard",
