@@ -32,8 +32,6 @@ Built with [OpenTUI](https://opentui.com) and [Bun](https://bun.sh).
 - [Bun](https://bun.sh) v1.3+ — The JavaScript runtime that's fast enough to make this nonsense work
 - [ffmpeg](https://ffmpeg.org/) — For live webcam capture (not needed for `--mock` mode)
 - **macOS** (currently uses AVFoundation for camera access)
-  - Linux/Windows support would need different ffmpeg input flags (`-f v4l2` on Linux, `-f dshow` on Windows)
-  - Pull requests welcome if you want to make this cross-platform!
 - A terminal that supports Unicode half-block characters (most modern terminals do)
 - A webcam (or the willingness to use `--mock` mode and pretend)
 
@@ -119,24 +117,17 @@ tui-cam renders to your terminal (stdout), not to a video device. To use it in Z
 ### Practical Options
 
 **On macOS:**
+
 - [OBS Studio](https://obsproject.com/) + [obs-mac-virtualcam](https://github.com/johnboiles/obs-mac-virtualcam) plugin
   - Run tui-cam in a terminal window
   - Use OBS to capture that specific window
   - Enable Virtual Camera in OBS
   - Select "OBS Virtual Camera" in Zoom/Teams
 
-**On Linux:**
-- [OBS Studio](https://obsproject.com/) + [v4l2loopback](https://github.com/umlaeute/v4l2loopback)
-  - Similar workflow to macOS
-  - v4l2loopback creates `/dev/video*` devices apps can use
-
-**On Windows:**
-- [OBS Studio](https://obsproject.com/) + built-in Virtual Camera
-  - Same capture workflow
-
 ### Why This Is Hilarious
 
 Your video call participants will see:
+
 - You, rendered in Unicode blocks
 - Delayed by ~100ms from the screen capture pipeline
 - Compressed twice (once by the terminal renderer, once by Zoom)
@@ -156,6 +147,7 @@ Should you do it anyway? **Absolutely.**
 ### Alternative: True Virtual Camera (Advanced)
 
 For the truly dedicated, you could modify tui-cam to:
+
 1. Render ASCII to an offscreen image buffer instead of terminal
 2. Write raw frames to a virtual video device
 3. Use libraries like `pam-diff` or `sharp` to generate image frames
